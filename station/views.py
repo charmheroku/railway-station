@@ -1,8 +1,12 @@
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from station.models import Station
-from station.serializers import StationSerializer
+from station.models import Station, Route
+from station.serializers import (
+    StationSerializer,
+    RouteSerializer,
+    RouteDetailSerializer,
+)
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
@@ -12,7 +16,6 @@ class StationViewSet(viewsets.ModelViewSet):
 
     queryset = Station.objects.all()
     serializer_class = StationSerializer
-    permission_classes = [permissions.IsAdminUser]
 
     @extend_schema(
         parameters=[
@@ -42,3 +45,13 @@ class StationViewSet(viewsets.ModelViewSet):
         stations = Station.objects.filter(name__icontains=query)[:10]
         serializer = StationSerializer(stations, many=True)
         return Response(serializer.data)
+
+
+class RouteViewSet(viewsets.ModelViewSet):
+    queryset = Route.objects.all()
+    serializer_class = RouteSerializer
+
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return RouteDetailSerializer
+        return RouteSerializer
