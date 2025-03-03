@@ -27,7 +27,9 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
 ]
 
-LOCAL_APPS = []
+LOCAL_APPS = [
+    "user",
+]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
@@ -124,3 +126,5 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=100),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
+
+AUTH_USER_MODEL = "user.User"
