@@ -1,0 +1,12 @@
+venv/
+media/
+templates_old/
+static/
+staticfiles/
+__pycache__/
+*.pyc
+.env
+db.sqlite3
+
+task_overview.md
+old_project/
