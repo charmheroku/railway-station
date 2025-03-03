@@ -1,11 +1,12 @@
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from station.models import Station, Route
+from station.models import Station, Route, Train
 from station.serializers import (
     StationSerializer,
     RouteSerializer,
     RouteDetailSerializer,
+    TrainSerializer,
 )
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
@@ -55,3 +56,8 @@ class RouteViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve"]:
             return RouteDetailSerializer
         return RouteSerializer
+
+
+class TrainViewSet(viewsets.ModelViewSet):
+    queryset = Train.objects.all()
+    serializer_class = TrainSerializer

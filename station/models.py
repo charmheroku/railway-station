@@ -58,3 +58,33 @@ class Route(models.Model):
             raise ValidationError(
                 "Station of departure cannot be the same as station of arrival"
             )
+
+
+class Train(models.Model):
+    """Model for passenger train"""
+
+    name = models.CharField(max_length=100, verbose_name="Name of train")
+    number = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name="Train number",
+    )
+    train_type = models.CharField(
+        max_length=20,
+        choices=[
+            ("passenger", "Passenger"),
+            ("express", "Express"),
+            ("suburban", "Suburban"),
+        ],
+        default="passenger",
+        verbose_name="Train type",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Train"
+        verbose_name_plural = "Trains"
+
+    def __str__(self):
+        return f"{self.name} ({self.number})"
