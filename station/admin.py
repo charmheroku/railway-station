@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import Station, Route, Train
+from station.models import (
+    Station,
+    Route,
+    Train,
+    WagonType,
+    WagonAmenity,
+    Wagon,
+)
 
 
 @admin.register(Station)
@@ -21,3 +28,18 @@ class TrainAdmin(admin.ModelAdmin):
     list_display = ("name", "number", "train_type")
     search_fields = ("name", "number")
     list_filter = ("train_type",)
+
+
+@admin.register(WagonType)
+class WagonTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "fare_multiplier")
+
+
+@admin.register(WagonAmenity)
+class WagonAmenityAdmin(admin.ModelAdmin):
+    list_display = ("name", "description")
+
+
+@admin.register(Wagon)
+class WagonAdmin(admin.ModelAdmin):
+    list_display = ("train", "number", "type", "seats")

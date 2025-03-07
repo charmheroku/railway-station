@@ -1,15 +1,27 @@
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from station.models import Station, Route, Train
+from station.models import (
+    Station,
+    Route,
+    Train,
+    Wagon,
+    WagonType,
+    WagonAmenity,
+)
 from station.serializers import (
     StationSerializer,
     RouteSerializer,
     RouteDetailSerializer,
     TrainSerializer,
+    WagonSerializer,
+    WagonTypeSerializer,
+    WagonAmenitySerializer,
+    WagonDetailSerializer,
 )
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
+from rest_framework import status
 
 
 class StationViewSet(viewsets.ModelViewSet):
@@ -61,3 +73,23 @@ class RouteViewSet(viewsets.ModelViewSet):
 class TrainViewSet(viewsets.ModelViewSet):
     queryset = Train.objects.all()
     serializer_class = TrainSerializer
+
+
+class WagonTypeViewSet(viewsets.ModelViewSet):
+    queryset = WagonType.objects.all()
+    serializer_class = WagonTypeSerializer
+
+
+class WagonAmenityViewSet(viewsets.ModelViewSet):
+    queryset = WagonAmenity.objects.all()
+    serializer_class = WagonAmenitySerializer
+
+
+class WagonViewSet(viewsets.ModelViewSet):
+    queryset = Wagon.objects.all()
+    serializer_class = WagonSerializer
+
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return WagonDetailSerializer
+        return WagonSerializer

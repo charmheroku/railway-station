@@ -88,3 +88,88 @@ class Train(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.number})"
+
+
+class WagonType(models.Model):
+    """
+    Тип вагона (купе, плацкарт, сидячий и т.д.), влияет на цену
+    """
+
+    name = models.CharField(max_length=50, verbose_name="Name of wagon type")
+    fare_multiplier = models.DecimalField(
+        max_digits=3, decimal_places=2, verbose_name="Fare multiplier"
+    )
+
+    class Meta:
+        verbose_name = "Wagon type"
+        verbose_name_plural = "Wagon types"
+
+    def __str__(self):
+        return f"{self.name} (x{self.fare_multiplier})"
+
+
+class WagonAmenity(models.Model):
+    """
+    Amenities in wagon (Wi-Fi, air conditioner, etc.)
+    """
+
+    name = models.CharField(max_length=100, verbose_name="Amenity name")
+    description = models.TextField(blank=True, verbose_name="Description")
+
+    class Meta:
+        verbose_name = "Wagon Amenity"
+        verbose_name_plural = "Wagon Amenities"
+
+    def __str__(self):
+        return self.name
+
+
+class Wagon(models.Model):
+    """
+    Specific wagon in train composition
+    """
+
+    train = models.ForeignKey(
+        Train,
+        on_delete=models.CASCADE,
+        related_name="wagons",
+        verbose_name="Train",
+    )
+    number = models.PositiveSmallIntegerField(verbose_name="Wagon number")
+    type = models.ForeignKey(
+        WagonType,
+        on_delete=models.PROTECT,
+        related_name="wagons",
+        verbose_name="Wagon type",
+    )
+    seats = models.PositiveSmallIntegerField(verbose_name="Number of seats")
+    amenities = models.ManyToManyField(
+        WagonAmenity,
+        blank=True,
+        related_name="wagons",
+        verbose_name="Amenities",
+    )
+
+    class Meta:
+        verbose_name = "Wagon"
+        verbose_name_plural = "Wagons"
+        unique_together = ("train", "number")
+
+    def __str__(self):
+        return f"Wagon {self.number} of Train {self.train.number}"
+
+    def sold_seats(self, trip=None):
+        """
+        Count occupied seats in wagon for given trip
+        """
+        if trip:
+            return self.tickets.filter(trip=trip).count()
+        return self.tickets.count()
+
+    def available_seats(self, trip=None):
+        """
+        Count available seats in wagon for given trip
+        """
+        if trip:
+            return self.seats - self.sold_seats(trip)
+        return self.seats - self.sold_seats()
