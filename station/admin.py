@@ -6,6 +6,7 @@ from station.models import (
     WagonType,
     WagonAmenity,
     Wagon,
+    Trip,
 )
 
 
@@ -43,3 +44,15 @@ class WagonAmenityAdmin(admin.ModelAdmin):
 @admin.register(Wagon)
 class WagonAdmin(admin.ModelAdmin):
     list_display = ("train", "number", "type", "seats")
+
+
+@admin.register(Trip)
+class TripAdmin(admin.ModelAdmin):
+    list_display = (
+        "route",
+        "train",
+        "departure_time",
+        "arrival_time",
+        "base_price",
+    )
+    list_filter = ("route", "train")

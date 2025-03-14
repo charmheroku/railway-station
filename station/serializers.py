@@ -6,6 +6,7 @@ from station.models import (
     WagonAmenity,
     WagonType,
     Wagon,
+    Trip,
 )
 
 
@@ -107,3 +108,51 @@ class WagonDetailSerializer(WagonSerializer):
             "amenities",
             "train",
         ]
+
+
+class TripSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trip
+        fields = [
+            "id",
+            "route",
+            "train",
+            "departure_time",
+            "arrival_time",
+            "base_price",
+        ]
+
+    def validate(self, attrs):
+        if attrs["arrival_time"] <= attrs["departure_time"]:
+            raise serializers.ValidationError(
+                "Arrival time must be later than departure time."
+            )
+        return attrs
+
+
+class TripDetailSerializer(TripSerializer):
+    route = RouteDetailSerializer(read_only=True)
+    train = TrainSerializer(read_only=True)
+    available_seats = serializers.ReadOnlyField()
+    sold_tickets = serializers.ReadOnlyField()
+    departure_time = serializers.SerializerMethodField()
+    arrival_time = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Trip
+        fields = [
+            "id",
+            "route",
+            "train",
+            "departure_time",
+            "arrival_time",
+            "base_price",
+            "available_seats",
+            "sold_tickets",
+        ]
+
+    def get_departure_time(self, obj):
+        return obj.departure_time.strftime("%Y-%m-%d %H:%M")
+
+    def get_arrival_time(self, obj):
+        return obj.arrival_time.strftime("%Y-%m-%d %H:%M")

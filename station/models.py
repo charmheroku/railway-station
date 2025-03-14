@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -53,7 +54,6 @@ class Route(models.Model):
     def clean(self):
         """Check that departure station is not the same as arrival station"""
         if self.origin_station == self.destination_station:
-            from django.core.exceptions import ValidationError
 
             raise ValidationError(
                 "Station of departure cannot be the same as station of arrival"
@@ -173,3 +173,61 @@ class Wagon(models.Model):
         if trip:
             return self.seats - self.sold_seats(trip)
         return self.seats - self.sold_seats()
+
+
+class Trip(models.Model):
+    """
+    Trip is a specific journey
+    (combination of route + train + departure/arrival time + base_price)
+    """
+
+    route = models.ForeignKey(
+        Route,
+        on_delete=models.CASCADE,
+        related_name="trips",
+        verbose_name="Route",
+    )
+    train = models.ForeignKey(
+        Train,
+        on_delete=models.CASCADE,
+        related_name="trips",
+        verbose_name="Train",
+    )
+    departure_time = models.DateTimeField(verbose_name="Departure time")
+    arrival_time = models.DateTimeField(verbose_name="Arrival time")
+    base_price = models.DecimalField(
+        max_digits=8, decimal_places=2, verbose_name="Base price"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Trip"
+        verbose_name_plural = "Trips"
+        ordering = ["departure_time"]
+
+    def __str__(self):
+        dt = self.departure_time.strftime("%d.%m.%Y %H:%M")
+        return (
+            f"{self.route.origin_station.name} → "
+            f"{self.route.destination_station.name} ({dt})"
+        )
+
+    def clean(self):
+        """
+        Check that arrival time is later than departure time
+        """
+        if self.arrival_time <= self.departure_time:
+
+            raise ValidationError(
+                "Arrival time must be later than departure time."
+            )
+
+    @property
+    def sold_tickets(self):
+        return self.tickets.count()
+
+    @property
+    def available_seats(self):
+        total_seats = sum(wagon.seats for wagon in self.train.wagons.all())
+        return total_seats - self.sold_tickets

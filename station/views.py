@@ -8,6 +8,7 @@ from station.models import (
     Wagon,
     WagonType,
     WagonAmenity,
+    Trip,
 )
 from station.serializers import (
     StationSerializer,
@@ -18,10 +19,13 @@ from station.serializers import (
     WagonTypeSerializer,
     WagonAmenitySerializer,
     WagonDetailSerializer,
+    TripSerializer,
+    TripDetailSerializer,
 )
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 
 class StationViewSet(viewsets.ModelViewSet):
@@ -93,3 +97,14 @@ class WagonViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve"]:
             return WagonDetailSerializer
         return WagonSerializer
+
+
+class TripViewSet(viewsets.ModelViewSet):
+    queryset = Trip.objects.all()
+    serializer_class = TripSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return TripDetailSerializer
+        return TripSerializer

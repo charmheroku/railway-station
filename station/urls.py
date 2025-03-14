@@ -7,6 +7,7 @@ from .views import (
     WagonViewSet,
     WagonAmenityViewSet,
     WagonTypeViewSet,
+    TripViewSet,
 )
 
 app_name = "station"
@@ -26,6 +27,7 @@ router.register(
     WagonTypeViewSet,
     basename="wagon-type",
 )
+router.register(r"trips", TripViewSet, basename="trip")
 
 urlpatterns = [
     path("", include(router.urls)),
