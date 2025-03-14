@@ -224,10 +224,10 @@ class Trip(models.Model):
             )
 
     @property
-    def sold_tickets(self):
+    def sold_tickets(self) -> int:
         return self.tickets.count()
 
     @property
-    def available_seats(self):
+    def available_seats(self) -> int:
         total_seats = sum(wagon.seats for wagon in self.train.wagons.all())
         return total_seats - self.sold_tickets

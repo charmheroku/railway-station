@@ -151,8 +151,8 @@ class TripDetailSerializer(TripSerializer):
             "sold_tickets",
         ]
 
-    def get_departure_time(self, obj):
+    def get_departure_time(self, obj) -> str:
         return obj.departure_time.strftime("%Y-%m-%d %H:%M")
 
-    def get_arrival_time(self, obj):
+    def get_arrival_time(self, obj) -> str:
         return obj.arrival_time.strftime("%Y-%m-%d %H:%M")
