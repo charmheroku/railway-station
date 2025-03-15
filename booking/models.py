@@ -60,7 +60,9 @@ class PassengerType(models.Model):
         default=True, verbose_name=_("Requires document")
     )
     is_active = models.BooleanField(default=True, verbose_name=_("Is active"))
-    order = models.PositiveSmallIntegerField(default=0, verbose_name=_("Display order"))
+    order = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_("Display order")
+    )
 
     class Meta:
         verbose_name = _("Passenger Type")

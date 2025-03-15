@@ -9,15 +9,25 @@ from django.db import transaction
 class PassengerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = PassengerType
-        fields = ["id", "code", "name", "discount_percent", "requires_document"]
+        fields = [
+            "id",
+            "code",
+            "name",
+            "discount_percent",
+            "requires_document",
+        ]
 
 
 class TicketSerializer(serializers.ModelSerializer):
     passenger_type = serializers.PrimaryKeyRelatedField(
         queryset=PassengerType.objects.all(),
         error_messages={
-            "does_not_exist": 'Passenger type with ID "{pk_value}" does not exist.',
-            "incorrect_type": "Passenger type must be a valid ID number, not a string.",
+            "does_not_exist": (
+                'Passenger type with ID "{pk_value}" does not exist.'
+            ),
+            "incorrect_type": (
+                "Passenger type must be a valid ID number, not a string."
+            ),
         },
     )
 
@@ -61,7 +71,10 @@ class TicketSerializer(serializers.ModelSerializer):
         if passenger_type.requires_document and not passenger_document:
             raise serializers.ValidationError(
                 {
-                    "passenger_document": f"Document is required for {passenger_type.name} passengers"
+                    "passenger_document": (
+                        f"Document is required for {passenger_type.name} "
+                        f"passengers"
+                    )
                 }
             )
 
@@ -110,7 +123,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         1. Check that at least one ticket is provided
         """
         if not tickets_data:
-            raise serializers.ValidationError("At least one ticket is required.")
+            raise serializers.ValidationError(
+                "At least one ticket is required."
+            )
 
         return tickets_data
 
@@ -143,9 +158,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                     else:
                         price = base_price  # Full price for adults
                 else:
-                    price = (
-                        base_price  # Default price if passenger_type is not provided
-                    )
+                    price = base_price
 
                 # Create ticket with calculated price
                 Ticket.objects.create(order=order, price=price, **ticket_data)

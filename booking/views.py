@@ -41,7 +41,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     @extend_schema(
         summary="Create a new order with tickets",
         description=(
-            "Create a new order with tickets. The order will be in 'pending' " "status."
+            "Create a new order with tickets. The order will be in 'pending' "
+            "status."
         ),
         responses={
             201: OrderSerializer,
@@ -64,7 +65,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_201_CREATED,
                 )
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class PassengerTypeViewSet(viewsets.ReadOnlyModelViewSet):
