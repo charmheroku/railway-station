@@ -25,6 +25,7 @@ from station.serializers import (
     WagonDetailSerializer,
     TripSerializer,
     TripAvailabilitySerializer,
+    TripCreateUpdateSerializer,
 )
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
@@ -104,18 +105,23 @@ class WagonViewSet(viewsets.ModelViewSet):
         return WagonSerializer
 
 
-class TripViewSet(viewsets.ReadOnlyModelViewSet):
+class TripViewSet(viewsets.ModelViewSet):
     queryset = Trip.objects.all()
-    serializer_class = TripSearchSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update"]:
+            return TripCreateUpdateSerializer
+        return TripSearchSerializer
 
     def perform_create(self, serializer):
         """
         When creating a trip, call clean() before saving.
         """
-        instance = serializer.save(commit=False)
         try:
+            instance = Trip(**serializer.validated_data)
             instance.clean()
-            instance.save()
+            serializer.save()
         except ValidationError as e:
             return Response(
                 {"error": e.message_dict}, status=status.HTTP_400_BAD_REQUEST
@@ -125,10 +131,11 @@ class TripViewSet(viewsets.ReadOnlyModelViewSet):
         """
         When updating a trip, call clean() before saving.
         """
-        instance = serializer.save(commit=False)
         try:
+            instance = Trip(**serializer.validated_data)
+            instance.id = self.get_object().id  # Set ID for existing instance
             instance.clean()
-            instance.save()
+            serializer.save()
         except ValidationError as e:
             return Response(
                 {"error": e.message_dict}, status=status.HTTP_400_BAD_REQUEST
@@ -154,6 +161,12 @@ class TripViewSet(viewsets.ReadOnlyModelViewSet):
                 required=False,
                 type=OpenApiTypes.STR,
             ),
+            OpenApiParameter(
+                name="passengers_count",
+                description="Number of passengers",
+                required=False,
+                type=OpenApiTypes.INT,
+            ),
         ],
         responses={200: TripSerializer(many=True)},
     )
@@ -170,9 +183,7 @@ class TripViewSet(viewsets.ReadOnlyModelViewSet):
         origin = request.query_params.get("origin")
         destination = request.query_params.get("destination")
         date_str = request.query_params.get("date")
-        passengers_count_str = request.query_params.get(
-            "passengers_count", "1"
-        )
+        passengers_count_str = request.query_params.get("passengers_count", "1")
 
         if not origin or not destination:
             return Response(
@@ -222,6 +233,23 @@ class TripViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = TripSearchSerializer(trips_qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                description="Date",
+                required=False,
+                type=OpenApiTypes.STR,
+            ),
+            OpenApiParameter(
+                name="passengers_count",
+                description="Number of passengers",
+                required=False,
+                type=OpenApiTypes.INT,
+            ),
+        ],
+        responses={200: TripAvailabilitySerializer(many=True)},
+    )
     @action(detail=True, methods=["get"], url_path="availability")
     def availability(self, request, pk=None):
         """
@@ -230,9 +258,7 @@ class TripViewSet(viewsets.ReadOnlyModelViewSet):
         trip = self.get_object()
 
         date_str = request.query_params.get("date")
-        passengers_count_str = request.query_params.get(
-            "passengers_count", "1"
-        )
+        passengers_count_str = request.query_params.get("passengers_count", "1")
 
         try:
             passengers_count = int(passengers_count_str)

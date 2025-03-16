@@ -133,6 +133,19 @@ class TripSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class TripCreateUpdateSerializer(TripSerializer):
+    class Meta:
+        model = Trip
+        fields = [
+            "id",
+            "route",
+            "train",
+            "departure_time",
+            "arrival_time",
+            "base_price",
+        ]
+
+
 class TripDetailSerializer(TripSerializer):
     route = RouteDetailSerializer(read_only=True)
     train = TrainSerializer(read_only=True)
@@ -247,8 +260,7 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
         Returns all unique wagon types for this train,
         so that the frontend can understand what classes exist.
         """
-        wagon_types_qs = WagonType.objects.filter(
-            wagons__train=obj.train).distinct()
+        wagon_types_qs = WagonType.objects.filter(wagons__train=obj.train).distinct()
         return [
             {
                 "id": wt.id,
