@@ -39,6 +39,7 @@ class StationViewSet(viewsets.ModelViewSet):
 
     queryset = Station.objects.all()
     serializer_class = StationSerializer
+    permission_classes = [permissions.IsAdminUser]
 
     @extend_schema(
         parameters=[
@@ -183,7 +184,9 @@ class TripViewSet(viewsets.ModelViewSet):
         origin = request.query_params.get("origin")
         destination = request.query_params.get("destination")
         date_str = request.query_params.get("date")
-        passengers_count_str = request.query_params.get("passengers_count", "1")
+        passengers_count_str = request.query_params.get(
+            "passengers_count", "1"
+        )
 
         if not origin or not destination:
             return Response(
@@ -250,7 +253,12 @@ class TripViewSet(viewsets.ModelViewSet):
         ],
         responses={200: TripAvailabilitySerializer(many=True)},
     )
-    @action(detail=True, methods=["get"], url_path="availability")
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="availability",
+        permission_classes=[permissions.AllowAny],
+    )
     def availability(self, request, pk=None):
         """
         Shows availability of seats on the selected date and the next 4 days.
@@ -258,7 +266,9 @@ class TripViewSet(viewsets.ModelViewSet):
         trip = self.get_object()
 
         date_str = request.query_params.get("date")
-        passengers_count_str = request.query_params.get("passengers_count", "1")
+        passengers_count_str = request.query_params.get(
+            "passengers_count", "1"
+        )
 
         try:
             passengers_count = int(passengers_count_str)

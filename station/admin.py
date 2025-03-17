@@ -24,8 +24,6 @@ class RouteAdmin(admin.ModelAdmin):
     list_filter = ("origin_station__city", "destination_station__city")
 
 
-
-
 class WagonInline(admin.TabularInline):
     model = Wagon
     extra = 1
@@ -45,12 +43,14 @@ class WagonAmenityAdmin(admin.ModelAdmin):
 class WagonAdmin(admin.ModelAdmin):
     list_display = ("train", "number", "type", "seats")
 
+
 @admin.register(Train)
 class TrainAdmin(admin.ModelAdmin):
     list_display = ("name", "number", "train_type")
     search_fields = ("name", "number")
     list_filter = ("train_type",)
     inlines = [WagonInline]
+
 
 @admin.register(Trip)
 class TripAdmin(admin.ModelAdmin):

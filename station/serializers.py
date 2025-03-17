@@ -85,11 +85,7 @@ class WagonSerializer(serializers.ModelSerializer):
 
 
 class WagonDetailSerializer(WagonSerializer):
-    amenities = serializers.SlugRelatedField(
-        many=True,
-        read_only=True,
-        slug_field="name",
-    )
+    amenities = serializers.SerializerMethodField()
     wagon_type = serializers.CharField(
         source="type.name",
         read_only=True,
@@ -110,6 +106,15 @@ class WagonDetailSerializer(WagonSerializer):
             "wagon_fare_multiplier",
             "amenities",
             "train",
+        ]
+
+    def get_amenities(self, obj):
+        """
+        Returns a list of amenities for the wagon.
+        """
+        return [
+            {"id": amenity.id, "name": amenity.name}
+            for amenity in obj.amenities.all()
         ]
 
 
@@ -260,7 +265,8 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
         Returns all unique wagon types for this train,
         so that the frontend can understand what classes exist.
         """
-        wagon_types_qs = WagonType.objects.filter(wagons__train=obj.train).distinct()
+        wagon_types_qs = WagonType.objects.filter(
+            wagons__train=obj.train).distinct()
         return [
             {
                 "id": wt.id,
