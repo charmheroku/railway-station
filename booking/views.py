@@ -7,28 +7,31 @@ from django.db import transaction
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from .models import PassengerType
 from .serializers import PassengerTypeSerializer
+from rest_framework import mixins
+from booking.services.order_service import OrderService
 
 
-class OrderViewSet(viewsets.ModelViewSet):
+class OrderViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
     """
-    ViewSet for managing orders
+    ViewSet for managing orders.
+    Allows only creating new orders and viewing existing ones.
     """
 
-    queryset = Order.objects.all()
-    serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
+    order_service = OrderService()
 
     def get_queryset(self):
         """
         Return all orders for admin users, only own orders for regular users
         """
         if self.request.user.is_staff:
-            return Order.objects.all().prefetch_related(
-                "tickets", "tickets__trip", "tickets__wagon"
-            )
-        return Order.objects.filter(user=self.request.user).prefetch_related(
-            "tickets", "tickets__trip", "tickets__wagon"
-        )
+            return self.order_service.get_all_orders()
+        return self.order_service.get_orders_for_user(self.request.user)
 
     def get_serializer_class(self):
         """
@@ -57,25 +60,20 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         try:
-            with transaction.atomic():
-                order = serializer.save()
-                # Return the full order details
-                return Response(
-                    OrderSerializer(order, context={"request": request}).data,
-                    status=status.HTTP_201_CREATED,
-                )
+            order = serializer.save()
+            return Response(
+                OrderSerializer(order, context={"request": request}).data,
+                status=status.HTTP_201_CREATED,
+            )
         except Exception as e:
             return Response(
-                {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
-            )
+                {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class PassengerTypeViewSet(viewsets.ReadOnlyModelViewSet):
+class PassengerTypeViewSet(viewsets.ModelViewSet):
     """
     ViewSet for listing passenger types
     """
 
     queryset = PassengerType.objects.filter(is_active=True)
     serializer_class = PassengerTypeSerializer
-    permission_classes = [AllowAny]  # Доступно без авторизации
-    pagination_class = None  # Отключаем пагинацию для этого эндпоинта

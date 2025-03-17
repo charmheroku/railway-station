@@ -4,6 +4,7 @@ from rest_framework.validators import UniqueTogetherValidator
 from station.serializers import TripDetailSerializer, WagonDetailSerializer
 from booking.models import Ticket, Order, PassengerType
 from django.db import transaction
+from booking.services.order_service import OrderService
 
 
 class PassengerTypeSerializer(serializers.ModelSerializer):
@@ -11,10 +12,10 @@ class PassengerTypeSerializer(serializers.ModelSerializer):
         model = PassengerType
         fields = [
             "id",
-            "code",
             "name",
             "discount_percent",
             "requires_document",
+            "is_active",
         ]
 
 
@@ -23,8 +24,7 @@ class TicketSerializer(serializers.ModelSerializer):
         queryset=PassengerType.objects.all(),
         error_messages={
             "does_not_exist": (
-                'Passenger type with ID "{pk_value}" does not exist.'
-            ),
+                'Passenger type with ID "{pk_value}" does not exist.'),
             "incorrect_type": (
                 "Passenger type must be a valid ID number, not a string."
             ),
@@ -124,51 +124,24 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         """
         if not tickets_data:
             raise serializers.ValidationError(
-                "At least one ticket is required."
-            )
+                "At least one ticket is required.")
 
         return tickets_data
 
     def create(self, validated_data):
         """
-        Create order and tickets in a single transaction
+        Create order and tickets using OrderService
         """
-
         tickets_data = validated_data.pop("tickets")
         user = self.context["request"].user
 
-        with transaction.atomic():
-            # Create order
-            order = Order.objects.create(user=user, status="pending")
-
-            # Create tickets
-            for ticket_data in tickets_data:
-                trip = ticket_data["trip"]
-                wagon = ticket_data["wagon"]
-                passenger_type = ticket_data.get("passenger_type")
-
-                # Calculate price based on trip, wagon type and passenger type
-                base_price = trip.base_price * wagon.type.fare_multiplier
-
-                if passenger_type:
-                    if passenger_type.code == "child":
-                        price = base_price * 0.5  # 50% discount for children
-                    elif passenger_type.code == "infant":
-                        price = 0  # Free for infants
-                    else:
-                        price = base_price  # Full price for adults
-                else:
-                    price = base_price
-
-                # Create ticket with calculated price
-                Ticket.objects.create(order=order, price=price, **ticket_data)
-
-        return order
+        order_service = OrderService()
+        return order_service.create_order(user, tickets_data)
 
 
 class OrderSerializer(serializers.ModelSerializer):
     """
-    Serializer for displaying order details
+    Serializer for displaying order details (read-only)
     """
 
     tickets = TicketDetailSerializer(many=True, read_only=True)
@@ -188,10 +161,4 @@ class OrderSerializer(serializers.ModelSerializer):
             "total_price",
             "tickets",
         ]
-        read_only_fields = [
-            "id",
-            "user",
-            "created_at",
-            "updated_at",
-            "total_price",
-        ]
+        read_only_fields = fields
