@@ -31,11 +31,11 @@ class OrderService:
 
                 if passenger_type:
                     if passenger_type.code == "child":
-                        price = base_price * 0.5  # 50% discount for children
+                        price = base_price * 0.5
                     elif passenger_type.code == "infant":
-                        price = 0  # Free for infants
+                        price = 0
                     else:
-                        price = base_price  # Full price for adults
+                        price = base_price
                 else:
                     price = base_price
 

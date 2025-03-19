@@ -165,9 +165,6 @@ class Ticket(models.Model):
     def compute_price(self) -> Decimal:
         """
         Calculate the ticket price based on:
-        - The base price in Trip.
-        - The wagon type multiplier (WagonType.fare_multiplier).
-        - The ticket type (e.g. child ticket may have a discount).
         """
         base = self.trip.base_price * self.wagon.wagon_type.fare_multiplier
         if self.passenger_type.discount_percent > 0:

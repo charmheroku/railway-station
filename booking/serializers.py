@@ -120,7 +120,6 @@ class OrderCreateSerializer(serializers.ModelSerializer):
     def validate_tickets(self, tickets_data):
         """
         Validate tickets data:
-        1. Check that at least one ticket is provided
         """
         if not tickets_data:
             raise serializers.ValidationError(

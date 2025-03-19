@@ -2,8 +2,7 @@ from booking.models import Order
 from booking.serializers import OrderSerializer, OrderCreateSerializer
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.db import transaction
+from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from .models import PassengerType
 from .serializers import PassengerTypeSerializer
@@ -19,7 +18,6 @@ class OrderViewSet(
 ):
     """
     ViewSet for managing orders.
-    Allows only creating new orders and viewing existing ones.
     """
 
     permission_classes = [IsAuthenticated]

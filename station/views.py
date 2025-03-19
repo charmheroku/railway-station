@@ -1,6 +1,4 @@
 from datetime import datetime
-from re import A
-from django.forms import ValidationError
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -35,7 +33,6 @@ from drf_spectacular.utils import (
 )
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from django.db.models import Q
 
 
@@ -64,8 +61,7 @@ class StationViewSet(viewsets.ModelViewSet):
     )
     def autocomplete(self, request):
         """
-        Endpoint for autocomplete station names.
-        Used in the frontend search form.
+        Autocomplete for stations
         """
         query = request.query_params.get("query", "")
         if len(query) < 2:
@@ -187,7 +183,6 @@ class TripViewSet(viewsets.ModelViewSet):
         else:
             search_date = datetime.now().date()
 
-        # Filter Trips:
         trips_qs = Trip.objects.filter(
             Q(route__origin_station__name__icontains=origin)
             | Q(route__origin_station__city__icontains=origin),
@@ -203,11 +198,11 @@ class TripViewSet(viewsets.ModelViewSet):
 
         if passengers_count > 0:
             trips_filtered = []
-            for t in trips_qs:
-                if t.is_available_for_booking(
+            for trip in trips_qs:
+                if trip.is_available_for_booking(
                     passengers_count, wagon_class=None, travel_date=search_date
                 ):
-                    trips_filtered.append(t)
+                    trips_filtered.append(trip)
             trips_qs = trips_filtered
 
         serializer = TripSearchSerializer(trips_qs, many=True)
@@ -321,7 +316,6 @@ class TripViewSet(viewsets.ModelViewSet):
         try:
             trip = self.get_object()
 
-            # Проверяем, что вагон существует и относится к поезду этого рейса
             try:
                 wagon = Wagon.objects.get(id=wagon_id, train=trip.train)
             except Wagon.DoesNotExist:
@@ -331,7 +325,6 @@ class TripViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            # Получаем дату из запроса или используем дату отправления рейса
             date_str = request.query_params.get("date")
             if date_str:
                 try:
@@ -344,7 +337,6 @@ class TripViewSet(viewsets.ModelViewSet):
             else:
                 check_date = trip.departure_time.date()
 
-            # Находим занятые места для этого вагона и рейса на указанную дату
             booked_seats = set(
                 Ticket.objects.filter(
                     trip=trip,
@@ -353,11 +345,10 @@ class TripViewSet(viewsets.ModelViewSet):
                 ).values_list("seat_number", flat=True)
             )
 
-            # Формируем ответ с информацией о каждом месте
             seat_data = []
             for seat_number in range(1, wagon.seats + 1):
-                # Вычисляем цену для места
-                price = float(trip.base_price * wagon.wagon_type.fare_multiplier)
+                price = float(
+                    trip.base_price * wagon.wagon_type.fare_multiplier)
 
                 seat_data.append(
                     {
@@ -367,7 +358,6 @@ class TripViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-            # Добавляем информацию о вагоне
             wagon_data = {
                 "id": wagon.id,
                 "number": wagon.number,
@@ -378,7 +368,6 @@ class TripViewSet(viewsets.ModelViewSet):
                 ],
             }
 
-            # Добавляем информацию о рейсе
             trip_data = {
                 "id": trip.id,
                 "origin": trip.route.origin_station.name,

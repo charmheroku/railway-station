@@ -153,17 +153,15 @@ class TripCreateUpdateSerializer(TripSerializer):
 
     def validate(self, data):
         """
-        Полная валидация данных поездки
+        Full validation of trip data
         """
-        # Создаем временный объект для валидации
         instance = Trip(**data)
         if self.instance:
             instance.id = self.instance.id
 
         try:
-            instance.clean()  # Вызываем Django-валидацию из модели
+            instance.clean()
         except DjangoValidationError as e:
-            # Преобразуем Django ValidationError в DRF ValidationError
             if hasattr(e, "message_dict"):
                 raise serializers.ValidationError(e.message_dict)
             else:
@@ -203,13 +201,7 @@ class TripDetailSerializer(TripSerializer):
 
 class TripSearchSerializer(serializers.ModelSerializer):
     """
-    Returns basic information about the trip:
-    - id
-    - train name and number
-    - departure/arrival station
-    - departure/arrival time
-    - duration, number of stops
-    - base price
+    Returns basic information about the trip
     """
 
     train_name = serializers.CharField(source="train.name", read_only=True)
@@ -347,7 +339,6 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
         same_trip_query = same_trip_query.annotate(
             hour=Extract("departure_time", "hour"),
             minute=Extract("departure_time", "minute"),
-            # Convert hours and minutes to minutes for easier comparison
             time_diff_minutes=Abs(
                 ExpressionWrapper(
                     (F("hour") * 60 + F("minute"))
@@ -392,7 +383,6 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
                     "arrival_time": trip_obj.arrival_time.isoformat(),
                     "is_available": is_available,
                     "classes": class_stats,
-                    # Add extra info to help frontend display the results
                     "is_current": trip_obj.id == obj.id,
                     "departure_date":
                     trip_obj.departure_time.date().isoformat(),

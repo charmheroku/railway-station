@@ -93,7 +93,7 @@ class Train(models.Model):
 
 class WagonType(models.Model):
     """
-    Wagon type (coupe, economy, etc.), affects price
+    Wagon type (coupe, economy, etc.)
     """
 
     name = models.CharField(max_length=50, verbose_name="Name of wagon type")
@@ -111,7 +111,7 @@ class WagonType(models.Model):
 
 class WagonAmenity(models.Model):
     """
-    Amenities in wagon (Wi-Fi, air conditioner, etc.)
+    Amenities in wagon
     """
 
     name = models.CharField(max_length=100, verbose_name="Amenity name")
@@ -220,14 +220,12 @@ class Trip(models.Model):
         """
         errors = {}
 
-        # Проверка времени отправления и прибытия
         if self.departure_time and self.arrival_time:
             if self.departure_time >= self.arrival_time:
                 errors["departure_time"] = [
                     "Departure time must be before arrival time."
                 ]
 
-        # Проверка пересечения рейсов того же поезда
         if self.train and self.departure_time and self.arrival_time:
             overlapping_trips = Trip.objects.filter(
                 train=self.train,
@@ -235,7 +233,6 @@ class Trip(models.Model):
                 arrival_time__gt=self.departure_time,
             )
 
-            # Исключаем текущий объект при обновлении
             if self.pk:
                 overlapping_trips = overlapping_trips.exclude(pk=self.pk)
 
@@ -248,7 +245,6 @@ class Trip(models.Model):
                     f"{overlap.arrival_time}"
                 ]
 
-        # Если есть ошибки, выбрасываем исключение
         if errors:
             raise ValidationError(errors)
 
