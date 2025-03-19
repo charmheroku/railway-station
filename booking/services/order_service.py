@@ -27,7 +27,7 @@ class OrderService:
                 passenger_type = ticket_data.get("passenger_type")
 
                 # Calculate price
-                base_price = trip.base_price * wagon.type.fare_multiplier
+                base_price = trip.base_price * wagon.wagon_type.fare_multiplier
 
                 if passenger_type:
                     if passenger_type.code == "child":

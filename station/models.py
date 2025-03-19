@@ -137,7 +137,7 @@ class Wagon(models.Model):
         verbose_name="Train",
     )
     number = models.PositiveSmallIntegerField(verbose_name="Wagon number")
-    type = models.ForeignKey(
+    wagon_type = models.ForeignKey(
         WagonType,
         on_delete=models.PROTECT,
         related_name="wagons",
@@ -215,30 +215,42 @@ class Trip(models.Model):
         )
 
     def clean(self):
-        # 1) Check that arrival_time > departure_time
-        if self.arrival_time <= self.departure_time:
-            raise ValidationError(
-                "Arrival time must be later than departure time."
+        """
+        Validate trip data
+        """
+        errors = {}
+
+        # Проверка времени отправления и прибытия
+        if self.departure_time and self.arrival_time:
+            if self.departure_time >= self.arrival_time:
+                errors["departure_time"] = [
+                    "Departure time must be before arrival time."
+                ]
+
+        # Проверка пересечения рейсов того же поезда
+        if self.train and self.departure_time and self.arrival_time:
+            overlapping_trips = Trip.objects.filter(
+                train=self.train,
+                departure_time__lt=self.arrival_time,
+                arrival_time__gt=self.departure_time,
             )
 
-        # 2) Check that there is no overlap for the same train
-        overlapping = Trip.objects.filter(
-            train=self.train,
-            # Condition for overlap:
-            # new trip (self) starts before another one ends
-            # AND ends after another one starts
-            departure_time__lt=self.arrival_time,
-            arrival_time__gt=self.departure_time,
-        ).exclude(
-            id=self.id
-        )  # exclude the object itself if it already exists (update)
+            # Исключаем текущий объект при обновлении
+            if self.pk:
+                overlapping_trips = overlapping_trips.exclude(pk=self.pk)
 
-        if overlapping.exists():
-            raise ValidationError(
-                f"Train {self.train} is already assigned to another trip, "
-                f"overlapping in time with {self.departure_time}"
-                f"– {self.arrival_time}"
-            )
+            if overlapping_trips.exists():
+                overlap = overlapping_trips.first()
+                errors["train"] = [
+                    f"Train {self.train.name} ({self.train.number}) is already"
+                    f"assigned to another trip, "
+                    f"overlapping in time with {overlap.departure_time}–"
+                    f"{overlap.arrival_time}"
+                ]
+
+        # Если есть ошибки, выбрасываем исключение
+        if errors:
+            raise ValidationError(errors)
 
     @property
     def sold_tickets(self) -> int:
@@ -281,23 +293,24 @@ class Trip(models.Model):
 
         wagon_classes = {}
 
-        for wagon in self.train.wagons.select_related("type"):
-            class_name = wagon.type.name
+        for wagon in self.train.wagons.select_related("wagon_type"):
+            class_name = wagon.wagon_type.name
             if class_name not in wagon_classes:
                 wagon_classes[class_name] = {
+                    "wagon_id": wagon.id,
                     "total_seats": 0,
                     "booked_seats": 0,
                     "available_seats": 0,
-                    "fare_multiplier": wagon.type.fare_multiplier,
+                    "fare_multiplier": wagon.wagon_type.fare_multiplier,
                 }
             wagon_classes[class_name]["total_seats"] += wagon.seats
 
         tickets_qs = self.tickets.filter(
             trip__departure_time__date=travel_date
-        )
+        ).select_related("wagon__wagon_type")
 
-        for ticket in tickets_qs.select_related("wagon__type"):
-            class_name = ticket.wagon.type.name
+        for ticket in tickets_qs:
+            class_name = ticket.wagon.wagon_type.name
             if class_name in wagon_classes:
                 wagon_classes[class_name]["booked_seats"] += 1
 
@@ -339,10 +352,10 @@ class Trip(models.Model):
         Calculates the price per person:
         base_price * fare_multiplier * passengers_count
         """
-        wagons = self.train.wagons.filter(type__name=wagon_class)
+        wagons = self.train.wagons.filter(wagon_type__name=wagon_class)
         if not wagons.exists():
             return Decimal("0.00")
 
-        fare_multiplier = wagons.first().type.fare_multiplier
+        fare_multiplier = wagons.first().wagon_type.fare_multiplier
         total_price = self.base_price * fare_multiplier * passengers_count
         return total_price.quantize(Decimal("0.01"))

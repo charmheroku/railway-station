@@ -41,7 +41,7 @@ class WagonAmenityAdmin(admin.ModelAdmin):
 
 @admin.register(Wagon)
 class WagonAdmin(admin.ModelAdmin):
-    list_display = ("train", "number", "type", "seats")
+    list_display = ("train", "number", "wagon_type", "seats")
 
 
 @admin.register(Train)

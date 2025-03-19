@@ -169,7 +169,7 @@ class Ticket(models.Model):
         - The wagon type multiplier (WagonType.fare_multiplier).
         - The ticket type (e.g. child ticket may have a discount).
         """
-        base = self.trip.base_price * self.wagon.type.fare_multiplier
+        base = self.trip.base_price * self.wagon.wagon_type.fare_multiplier
         if self.passenger_type.discount_percent > 0:
             discount = Decimal(f"0.{self.passenger_type.discount_percent}")
             return base * (Decimal("1") - discount)

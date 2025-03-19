@@ -4,6 +4,7 @@ from django.forms import ValidationError
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from booking.models import Ticket
 from station.models import (
     Station,
     Route,
@@ -27,7 +28,11 @@ from station.serializers import (
     TripAvailabilitySerializer,
     TripCreateUpdateSerializer,
 )
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiParameter,
+    OpenApiResponse,
+)
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
@@ -111,36 +116,9 @@ class TripViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAdminUser]
 
     def get_serializer_class(self):
-        if self.action in ["create", "update"]:
+        if self.action in ["create", "update", "partial_update"]:
             return TripCreateUpdateSerializer
         return TripSearchSerializer
-
-    def perform_create(self, serializer):
-        """
-        When creating a trip, call clean() before saving.
-        """
-        try:
-            instance = Trip(**serializer.validated_data)
-            instance.clean()
-            serializer.save()
-        except ValidationError as e:
-            return Response(
-                {"error": e.message_dict}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-    def perform_update(self, serializer):
-        """
-        When updating a trip, call clean() before saving.
-        """
-        try:
-            instance = Trip(**serializer.validated_data)
-            instance.id = self.get_object().id  # Set ID for existing instance
-            instance.clean()
-            serializer.save()
-        except ValidationError as e:
-            return Response(
-                {"error": e.message_dict}, status=status.HTTP_400_BAD_REQUEST
-            )
 
     @extend_schema(
         parameters=[
@@ -185,8 +163,7 @@ class TripViewSet(viewsets.ModelViewSet):
         destination = request.query_params.get("destination")
         date_str = request.query_params.get("date")
         passengers_count_str = request.query_params.get(
-            "passengers_count", "1"
-        )
+            "passengers_count", "1")
 
         if not origin or not destination:
             return Response(
@@ -267,8 +244,7 @@ class TripViewSet(viewsets.ModelViewSet):
 
         date_str = request.query_params.get("date")
         passengers_count_str = request.query_params.get(
-            "passengers_count", "1"
-        )
+            "passengers_count", "1")
 
         try:
             passengers_count = int(passengers_count_str)
@@ -294,3 +270,141 @@ class TripViewSet(viewsets.ModelViewSet):
             },
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                description="Date in YYYY-MM-DD format",
+                required=False,
+                type=OpenApiTypes.STR,
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="List of seats with availability information",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "seats": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "number": {"type": "integer"},
+                                    "is_available": {"type": "boolean"},
+                                    "price": {"type": "number"},
+                                },
+                            },
+                        },
+                        "wagon": {"type": "object"},
+                        "trip": {"type": "object"},
+                    },
+                },
+            ),
+            400: OpenApiResponse(description="Bad Request"),
+            404: OpenApiResponse(description="Trip or Wagon not found"),
+        },
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path=r"wagons/(?P<wagon_id>\d+)/seats",
+        permission_classes=[permissions.AllowAny],
+    )
+    def wagon_seats(self, request, pk=None, wagon_id=None):
+        """
+        Returns information about seats in a specific wagon for a trip.
+        Each seat contains its number and availability status.
+
+        """
+        try:
+            trip = self.get_object()
+
+            # Проверяем, что вагон существует и относится к поезду этого рейса
+            try:
+                wagon = Wagon.objects.get(id=wagon_id, train=trip.train)
+            except Wagon.DoesNotExist:
+                return Response(
+                    {"error":
+                     f"Wagon with ID {wagon_id}  not found in this train"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Получаем дату из запроса или используем дату отправления рейса
+            date_str = request.query_params.get("date")
+            if date_str:
+                try:
+                    check_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    return Response(
+                        {"error": "Invalid date format. Use YYYY-MM-DD"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                check_date = trip.departure_time.date()
+
+            # Находим занятые места для этого вагона и рейса на указанную дату
+            booked_seats = set(
+                Ticket.objects.filter(
+                    trip=trip,
+                    wagon=wagon,
+                    trip__departure_time__date=check_date,
+                ).values_list("seat_number", flat=True)
+            )
+
+            # Формируем ответ с информацией о каждом месте
+            seat_data = []
+            for seat_number in range(1, wagon.seats + 1):
+                # Вычисляем цену для места
+                price = float(trip.base_price * wagon.wagon_type.fare_multiplier)
+
+                seat_data.append(
+                    {
+                        "number": seat_number,
+                        "is_available": seat_number not in booked_seats,
+                        "price": price,
+                    }
+                )
+
+            # Добавляем информацию о вагоне
+            wagon_data = {
+                "id": wagon.id,
+                "number": wagon.number,
+                "type": wagon.wagon_type.name,
+                "total_seats": wagon.seats,
+                "amenities": [
+                    {"id": a.id, "name": a.name} for a in wagon.amenities.all()
+                ],
+            }
+
+            # Добавляем информацию о рейсе
+            trip_data = {
+                "id": trip.id,
+                "origin": trip.route.origin_station.name,
+                "destination": trip.route.destination_station.name,
+                "departure_time": trip.departure_time.isoformat(),
+                "arrival_time": trip.arrival_time.isoformat(),
+            }
+
+            return Response(
+                {
+                    "seats": seat_data,
+                    "wagon": wagon_data,
+                    "trip": trip_data,
+                    "check_date": check_date.isoformat(),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def perform_update(self, serializer):
+        serializer.save()

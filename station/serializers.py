@@ -1,7 +1,8 @@
 from datetime import timedelta
-from decimal import Decimal
-
+from django.db.models import F, ExpressionWrapper, fields
+from django.db.models.functions import Abs, Extract
 from rest_framework import serializers
+from django.core.exceptions import ValidationError as DjangoValidationError
 from station.models import (
     Station,
     Route,
@@ -150,6 +151,27 @@ class TripCreateUpdateSerializer(TripSerializer):
             "base_price",
         ]
 
+    def validate(self, data):
+        """
+        Полная валидация данных поездки
+        """
+        # Создаем временный объект для валидации
+        instance = Trip(**data)
+        if self.instance:
+            instance.id = self.instance.id
+
+        try:
+            instance.clean()  # Вызываем Django-валидацию из модели
+        except DjangoValidationError as e:
+            # Преобразуем Django ValidationError в DRF ValidationError
+            if hasattr(e, "message_dict"):
+                raise serializers.ValidationError(e.message_dict)
+            else:
+                raise serializers.ValidationError(
+                    {"non_field_errors": e.messages})
+
+        return data
+
 
 class TripDetailSerializer(TripSerializer):
     route = RouteDetailSerializer(read_only=True)
@@ -192,6 +214,7 @@ class TripSearchSerializer(serializers.ModelSerializer):
 
     train_name = serializers.CharField(source="train.name", read_only=True)
     train_number = serializers.CharField(source="train.number", read_only=True)
+    wagon_types = serializers.SerializerMethodField()
 
     origin_station = serializers.CharField(
         source="route.origin_station.name", read_only=True
@@ -216,10 +239,27 @@ class TripSearchSerializer(serializers.ModelSerializer):
             "duration_minutes",
             "stops_count",
             "base_price",
+            "wagon_types",
         ]
 
     def get_duration_minutes(self, obj):
         return obj.duration_in_minutes
+
+    def get_wagon_types(self, obj):
+        """
+        Returns all unique wagon types for this train,
+        so that the frontend can understand what classes exist.
+        """
+        wagon_types_qs = WagonType.objects.filter(
+            wagons__train=obj.train).distinct()
+        return [
+            {
+                "id": wt.id,
+                "name": wt.name,
+                "fare_multiplier": str(wt.fare_multiplier),
+            }
+            for wt in wagon_types_qs
+        ]
 
 
 class TripAvailabilitySerializer(serializers.ModelSerializer):
@@ -278,21 +318,54 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
 
     def get_dates_availability(self, obj):
         """
-        We search in the DB for up to 5 real Trips (including the current one),
-        which go on the same route and train, and not earlier than today's
-        departure_time.
-        """
+        Find alternative dates for the selected trip.
+        We search for trips with:
+        1. The same train
+        2. The same route
+        3. Departure time as close as possible to
+        the original trip's time of day
 
+        Returns up to 5 trips (including the current one).
+        """
         passengers_count = self.context.get("passengers_count", 1)
 
-        future_trips = Trip.objects.filter(
+        # Get time of day of the reference trip (hours and minutes)
+        reference_hour = obj.departure_time.hour
+        reference_minute = obj.departure_time.minute
+
+        # Find trips with same train and route
+        same_trip_query = Trip.objects.filter(
             route=obj.route,
             train=obj.train,
-            departure_time__gte=obj.departure_time,
-        ).order_by("departure_time")[:5]
+            # Include trips from yesterday and all future trips
+            departure_time__gte=obj.departure_time.replace(
+                hour=0, minute=0, second=0
+            ) - timedelta(days=1),
+        )
+
+        # Calculate the time difference with the reference trip's time of day
+        same_trip_query = same_trip_query.annotate(
+            hour=Extract("departure_time", "hour"),
+            minute=Extract("departure_time", "minute"),
+            # Convert hours and minutes to minutes for easier comparison
+            time_diff_minutes=Abs(
+                ExpressionWrapper(
+                    (F("hour") * 60 + F("minute"))
+                    - (reference_hour * 60 + reference_minute),
+                    output_field=fields.IntegerField(),
+                )
+            ),
+        )
+
+        # Order by:
+        # 1. Time difference (to get trips at similar time of day)
+        # 2. Departure time (for chronological order when times are equal)
+        alternative_trips = same_trip_query.order_by(
+            "time_diff_minutes", "departure_time"
+        )[:5]
 
         result = []
-        for trip_obj in future_trips:
+        for trip_obj in alternative_trips:
             class_stats = trip_obj.get_available_seats_by_class(
                 travel_date=trip_obj.departure_time.date()
             )
@@ -319,6 +392,14 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
                     "arrival_time": trip_obj.arrival_time.isoformat(),
                     "is_available": is_available,
                     "classes": class_stats,
+                    # Add extra info to help frontend display the results
+                    "is_current": trip_obj.id == obj.id,
+                    "departure_date":
+                    trip_obj.departure_time.date().isoformat(),
+                    "departure_time_of_day":
+                    trip_obj.departure_time.strftime("%H:%M"),
+                    "time_diff_minutes":
+                    getattr(trip_obj, "time_diff_minutes", 0),
                 }
             )
 
