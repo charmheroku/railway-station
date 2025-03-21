@@ -114,7 +114,8 @@ class WagonDetailSerializer(WagonSerializer):
         Returns a list of amenities for the wagon.
         """
         return [
-            {"id": amenity.id, "name": amenity.name} for amenity in obj.amenities.all()
+            {"id": amenity.id, "name": amenity.name}
+            for amenity in obj.amenities.all()
         ]
 
 
@@ -164,7 +165,8 @@ class TripCreateUpdateSerializer(TripSerializer):
             if hasattr(e, "message_dict"):
                 raise serializers.ValidationError(e.message_dict)
             else:
-                raise serializers.ValidationError({"non_field_errors": e.messages})
+                raise serializers.ValidationError(
+                    {"non_field_errors": e.messages})
 
         return data
 
@@ -240,7 +242,8 @@ class TripSearchSerializer(serializers.ModelSerializer):
         Returns all unique wagon types for this train,
         so that the frontend can understand what classes exist.
         """
-        wagon_types_qs = WagonType.objects.filter(wagons__train=obj.train).distinct()
+        wagon_types_qs = WagonType.objects.filter(
+            wagons__train=obj.train).distinct()
         return [
             {
                 "id": wt.id,
@@ -294,7 +297,8 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
         Returns all unique wagon types for this train,
         so that the frontend can understand what classes exist.
         """
-        wagon_types_qs = WagonType.objects.filter(wagons__train=obj.train).distinct()
+        wagon_types_qs = WagonType.objects.filter(
+            wagons__train=obj.train).distinct()
         return [
             {
                 "id": wt.id,
@@ -326,7 +330,11 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
             route=obj.route,
             train=obj.train,
             # Include trips from yesterday and all future trips
-            departure_time__gte=obj.departure_time.replace(hour=0, minute=0, second=0),
+            departure_time__gte=obj.departure_time.replace(
+                hour=0,
+                minute=0,
+                second=0,
+            ),
         )
 
         # Calculate the time difference with the reference trip's time of day
@@ -390,11 +398,14 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
                         "total_seats": wagon.seats,
                         "booked_seats": wagon_booked_seats,
                         "available_seats": available_seats,
-                        "has_enough_seats": available_seats >= passengers_count,
+                        "has_enough_seats": (
+                            available_seats >= passengers_count
+                        ),
                         "price_per_passenger": price_per_passenger,
                         "total_price": price_per_passenger * passengers_count,
                         "amenities": [
-                            {"id": a.id, "name": a.name} for a in wagon.amenities.all()
+                            {"id": a.id, "name": a.name}
+                            for a in wagon.amenities.all()
                         ],
                     }
                 )
@@ -413,15 +424,21 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
                         "fare_multiplier": total_price / base_total,
                     }
                 wagon_types[wtype]["total_seats"] += wagon["total_seats"]
-                wagon_types[wtype]["available_seats"] += wagon["available_seats"]
-                wagon_types[wtype]["has_enough_seats"] |= wagon["has_enough_seats"]
+                wagon_types[wtype]["available_seats"] += (
+                    wagon["available_seats"]
+                )
+                wagon_types[wtype]["has_enough_seats"] = (
+                    wagon_types[wtype]["has_enough_seats"]
+                    or wagon["has_enough_seats"]
+                )
 
             result.append(
                 {
                     "trip_id": trip_obj.id,
                     "departure_time": trip_obj.departure_time.isoformat(),
                     "arrival_time": trip_obj.arrival_time.isoformat(),
-                    "is_available": any(w["has_enough_seats"] for w in wagons_data),
+                    "is_available": any(w["has_enough_seats"]
+                                        for w in wagons_data),
                     "wagons": wagons_data,
                     "wagon_types_summary": wagon_types,
                     "is_current": trip_obj.id == obj.id,
@@ -429,7 +446,8 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
                     "departure_time_of_day": (
                         trip_obj.departure_time.strftime("%H:%M")
                     ),
-                    "time_diff_minutes": getattr(trip_obj, "time_diff_minutes", 0),
+                    "time_diff_minutes": getattr(
+                        trip_obj, "time_diff_minutes", 0),
                 }
             )
 
