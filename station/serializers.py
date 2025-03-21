@@ -80,7 +80,7 @@ class WagonSerializer(serializers.ModelSerializer):
             "number",
             "seats",
             "train",
-            "type",
+            "wagon_type",
             "amenities",
         ]
 
@@ -88,11 +88,11 @@ class WagonSerializer(serializers.ModelSerializer):
 class WagonDetailSerializer(WagonSerializer):
     amenities = serializers.SerializerMethodField()
     wagon_type = serializers.CharField(
-        source="type.name",
+        source="wagon_type.name",
         read_only=True,
     )
     wagon_fare_multiplier = serializers.CharField(
-        source="type.fare_multiplier",
+        source="wagon_type.fare_multiplier",
         read_only=True,
     )
     train = TrainSerializer(read_only=True)
@@ -114,8 +114,7 @@ class WagonDetailSerializer(WagonSerializer):
         Returns a list of amenities for the wagon.
         """
         return [
-            {"id": amenity.id, "name": amenity.name}
-            for amenity in obj.amenities.all()
+            {"id": amenity.id, "name": amenity.name} for amenity in obj.amenities.all()
         ]
 
 
@@ -165,8 +164,7 @@ class TripCreateUpdateSerializer(TripSerializer):
             if hasattr(e, "message_dict"):
                 raise serializers.ValidationError(e.message_dict)
             else:
-                raise serializers.ValidationError(
-                    {"non_field_errors": e.messages})
+                raise serializers.ValidationError({"non_field_errors": e.messages})
 
         return data
 
@@ -242,8 +240,7 @@ class TripSearchSerializer(serializers.ModelSerializer):
         Returns all unique wagon types for this train,
         so that the frontend can understand what classes exist.
         """
-        wagon_types_qs = WagonType.objects.filter(
-            wagons__train=obj.train).distinct()
+        wagon_types_qs = WagonType.objects.filter(wagons__train=obj.train).distinct()
         return [
             {
                 "id": wt.id,
@@ -297,8 +294,7 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
         Returns all unique wagon types for this train,
         so that the frontend can understand what classes exist.
         """
-        wagon_types_qs = WagonType.objects.filter(
-            wagons__train=obj.train).distinct()
+        wagon_types_qs = WagonType.objects.filter(wagons__train=obj.train).distinct()
         return [
             {
                 "id": wt.id,
@@ -330,9 +326,7 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
             route=obj.route,
             train=obj.train,
             # Include trips from yesterday and all future trips
-            departure_time__gte=obj.departure_time.replace(
-                hour=0, minute=0, second=0
-            ) - timedelta(days=1),
+            departure_time__gte=obj.departure_time.replace(hour=0, minute=0, second=0),
         )
 
         # Calculate the time difference with the reference trip's time of day
@@ -357,39 +351,85 @@ class TripAvailabilitySerializer(serializers.ModelSerializer):
 
         result = []
         for trip_obj in alternative_trips:
-            class_stats = trip_obj.get_available_seats_by_class(
-                travel_date=trip_obj.departure_time.date()
+            travel_date = trip_obj.departure_time.date()
+
+            # Get all wagons for this trip's train
+            wagons = (
+                trip_obj.train.wagons.select_related("wagon_type")
+                .prefetch_related("amenities")
+                .all()
             )
 
-            is_available = any(
-                info["available_seats"] >= passengers_count
-                for info in class_stats.values()
-            )
+            # Get all booked seats for this trip on this date
+            booked_seats = {
+                (ticket["wagon_id"], ticket["seat_number"])
+                for ticket in trip_obj.tickets.filter(
+                    trip__departure_time__date=travel_date
+                ).values("wagon_id", "seat_number")
+            }
 
-            for cls_name, cls_info in class_stats.items():
-                fare_mult = cls_info["fare_multiplier"]
-                base_price = trip_obj.base_price
-                cls_info["price_for_passengers"] = float(
-                    base_price * fare_mult * passengers_count
+            # Process each wagon
+            wagons_data = []
+            for wagon in wagons:
+                # Calculate available seats in this wagon
+                wagon_booked_seats = sum(
+                    1 for seat in booked_seats if seat[0] == wagon.id
                 )
-                cls_info["has_enough_seats"] = (
-                    cls_info["available_seats"] >= passengers_count
+                available_seats = wagon.seats - wagon_booked_seats
+
+                # Calculate price for this wagon
+                price_per_passenger = float(
+                    trip_obj.base_price * wagon.wagon_type.fare_multiplier
                 )
+
+                wagons_data.append(
+                    {
+                        "wagon_id": wagon.id,
+                        "wagon_number": wagon.number,
+                        "wagon_type": wagon.wagon_type.name,
+                        "total_seats": wagon.seats,
+                        "booked_seats": wagon_booked_seats,
+                        "available_seats": available_seats,
+                        "has_enough_seats": available_seats >= passengers_count,
+                        "price_per_passenger": price_per_passenger,
+                        "total_price": price_per_passenger * passengers_count,
+                        "amenities": [
+                            {"id": a.id, "name": a.name} for a in wagon.amenities.all()
+                        ],
+                    }
+                )
+
+            # Group wagons by type for summary
+            wagon_types = {}
+            for wagon in wagons_data:
+                wtype = wagon["wagon_type"]
+                if wtype not in wagon_types:
+                    total_price = float(wagon["total_price"])
+                    base_total = float(trip_obj.base_price * passengers_count)
+                    wagon_types[wtype] = {
+                        "total_seats": 0,
+                        "available_seats": 0,
+                        "has_enough_seats": False,
+                        "fare_multiplier": total_price / base_total,
+                    }
+                wagon_types[wtype]["total_seats"] += wagon["total_seats"]
+                wagon_types[wtype]["available_seats"] += wagon["available_seats"]
+                wagon_types[wtype]["has_enough_seats"] |= wagon["has_enough_seats"]
 
             result.append(
                 {
                     "trip_id": trip_obj.id,
                     "departure_time": trip_obj.departure_time.isoformat(),
                     "arrival_time": trip_obj.arrival_time.isoformat(),
-                    "is_available": is_available,
-                    "classes": class_stats,
+                    "is_available": any(w["has_enough_seats"] for w in wagons_data),
+                    "wagons": wagons_data,
+                    "wagon_types_summary": wagon_types,
                     "is_current": trip_obj.id == obj.id,
-                    "departure_date":
-                    trip_obj.departure_time.date().isoformat(),
-                    "departure_time_of_day":
-                    trip_obj.departure_time.strftime("%H:%M"),
-                    "time_diff_minutes":
-                    getattr(trip_obj, "time_diff_minutes", 0),
+                    "departure_date": travel_date.isoformat(),
+                    "departure_time_of_day": (
+                        trip_obj.departure_time.strftime("%H:%M")
+                    ),
+                    "time_diff_minutes": getattr(trip_obj, "time_diff_minutes", 0),
                 }
             )
 
