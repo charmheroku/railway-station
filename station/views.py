@@ -41,7 +41,11 @@ class StationViewSet(viewsets.ModelViewSet):
 
     queryset = Station.objects.all()
     serializer_class = StationSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
 
     @extend_schema(
         parameters=[
@@ -109,7 +113,7 @@ class WagonViewSet(viewsets.ModelViewSet):
 
 class TripViewSet(viewsets.ModelViewSet):
     queryset = Trip.objects.all()
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAdminUser()]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
