@@ -1,7 +1,6 @@
 venv/
 media/
 templates_old/
-static/
 staticfiles/
 __pycache__/
 *.pyc
