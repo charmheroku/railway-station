@@ -1,0 +1,137 @@
+[
+  {
+    "model": "station.station",
+    "pk": 1,
+    "fields": {
+      "name": "Kyiv-Pasazhyrskyi",
+      "city": "Kyiv",
+      "address": "Vokzalna Square, 1",
+      "created_at": "2025-03-24T10:00:00Z",
+      "updated_at": "2025-03-24T10:00:00Z"
+    }
+  },
+  {
+    "model": "station.station",
+    "pk": 2,
+    "fields": {
+      "name": "Lviv",
+      "city": "Lviv",
+      "address": "Dvirtseva Square, 1",
+      "created_at": "2025-03-24T10:00:00Z",
+      "updated_at": "2025-03-24T10:00:00Z"
+    }
+  },
+  {
+    "model": "station.station",
+    "pk": 3,
+    "fields": {
+      "name": "Warszawa Centralna",
+      "city": "Warsaw",
+      "address": "Aleje Jerozolimskie 54",
+      "created_at": "2025-03-24T10:00:00Z",
+      "updated_at": "2025-03-24T10:00:00Z"
+    }
+  },
+  {
+    "model": "station.route",
+    "pk": 1,
+    "fields": {
+      "origin_station": 1,
+      "destination_station": 2,
+      "distance_km": 550,
+      "created_at": "2025-03-24T10:00:00Z",
+      "updated_at": "2025-03-24T10:00:00Z"
+    }
+  },
+  {
+    "model": "station.train",
+    "pk": 1,
+    "fields": {
+      "name": "Intercity Kyiv-Lviv",
+      "number": "IC-705",
+      "train_type": "express",
+      "created_at": "2025-03-24T10:00:00Z",
+      "updated_at": "2025-03-24T10:00:00Z"
+    }
+  },
+  {
+    "model": "station.wagontype",
+    "pk": 1,
+    "fields": {
+      "name": "Coupe",
+      "fare_multiplier": "1.50"
+    }
+  },
+  {
+    "model": "station.wagon",
+    "pk": 1,
+    "fields": {
+      "train": 1,
+      "number": 1,
+      "wagon_type": 1,
+      "seats": 36,
+      "amenities": []
+    }
+  },
+  {
+    "model": "station.trip",
+    "pk": 1,
+    "fields": {
+      "route": 1,
+      "train": 1,
+      "departure_time": "2025-04-01T08:00:00Z",
+      "arrival_time": "2025-04-01T13:00:00Z",
+      "base_price": "300.00",
+      "created_at": "2025-03-24T10:00:00Z",
+      "updated_at": "2025-03-24T10:00:00Z"
+    }
+  },
+  {
+    "model": "user.user",
+    "pk": 1,
+    "fields": {
+      "email": "user@example.com",
+      "password": "pbkdf2_sha256$390000$abc123$saltedhash",
+      "is_staff": false,
+      "is_superuser": false,
+      "date_joined": "2025-03-24T10:00:00Z"
+    }
+  },
+  {
+    "model": "booking.passengertype",
+    "pk": 1,
+    "fields": {
+      "code": "ADT",
+      "name": "Adult",
+      "discount_percent": 0,
+      "requires_document": true,
+      "is_active": true,
+      "order": 1
+    }
+  },
+  {
+    "model": "booking.order",
+    "pk": 1,
+    "fields": {
+      "user": 1,
+      "created_at": "2025-03-24T12:00:00Z",
+      "updated_at": "2025-03-24T12:00:00Z",
+      "status": "pending"
+    }
+  },
+  {
+    "model": "booking.ticket",
+    "pk": 1,
+    "fields": {
+      "trip": 1,
+      "wagon": 1,
+      "seat_number": 1,
+      "order": 1,
+      "passenger_type": 1,
+      "price": "450.00",
+      "passenger_name": "John Doe",
+      "passenger_document": "AB1234567",
+      "created_at": "2025-03-24T12:00:00Z"
+    }
+  }
+]
