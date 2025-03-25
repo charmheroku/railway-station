@@ -1,6 +1,6 @@
 # Railway Station Booking System API 🚆
 
-A robust, API for a train ticket booking system that powers seamless reservation experiences across European railway networks.
+A robust, API for a train ticket booking system for reservation experiences across European railway networks.
 
 ## 🌟 [Live Demo API](https://railway-station.onrender.com/api/docs/)
 
