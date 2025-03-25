@@ -64,7 +64,11 @@ The admin panel provides full CRUD operations for all system entities through a 
 
 ## 🏗️ System Architecture
 
-The system follows a clean architecture pattern with:
+**DB architecture**
+![image](https://github.com/user-attachments/assets/0522e611-7850-43da-a6bc-2b7b71961335)
+
+
+The system follows architecture pattern with:
 - **Models**: Train, Station, Route, Trip, Wagon, Booking, Ticket, etc.
 - **APIs**: RESTful endpoints with proper permissions
 - **Services**: Business logic isolated in service classes
