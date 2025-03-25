@@ -113,7 +113,7 @@ class WagonViewSet(viewsets.ModelViewSet):
 
 class TripViewSet(viewsets.ModelViewSet):
     queryset = Trip.objects.all()
-    permission_classes = [permissions.IsAdminUser()]
+    permission_classes = [permissions.IsAdminUser]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
