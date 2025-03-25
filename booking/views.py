@@ -2,7 +2,7 @@ from booking.models import Order
 from booking.serializers import OrderSerializer, OrderCreateSerializer
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from .models import PassengerType
 from .serializers import PassengerTypeSerializer
@@ -77,3 +77,8 @@ class PassengerTypeViewSet(viewsets.ModelViewSet):
 
     queryset = PassengerType.objects.filter(is_active=True)
     serializer_class = PassengerTypeSerializer
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
